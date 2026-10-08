@@ -1,0 +1,6 @@
+services:
+  base:
+    build:
+      context: .
+      dockerfile: Dockerfile.base
+    image: coding-agent-base
