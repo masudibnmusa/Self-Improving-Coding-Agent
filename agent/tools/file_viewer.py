@@ -13,6 +13,10 @@ def safe_path(repo_path, rel: str) -> Path:
     p = (root / normalize(rel)).resolve()
     if p != root and root not in p.parents:
         raise ValueError(f"path escapes the repository: {rel}")
+    # Checked on the resolved path so a symlink in the worktree cannot point into .git.
+    # Writing .git/config or .git/hooks would let the agent run commands on the host.
+    if ".git" in p.relative_to(root).parts:
+        raise ValueError(f"access to .git is not allowed: {rel}")
     return p
 
 

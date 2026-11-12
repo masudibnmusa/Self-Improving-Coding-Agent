@@ -13,6 +13,15 @@ class DockerSandbox:
         self.client = None
         self.container = None
 
+    def volumes(self) -> dict:
+        vols = {str(self.repo_path): {"bind": "/workspace", "mode": "rw"}}
+        git_dir = self.repo_path / ".git"
+        if git_dir.exists():
+            # Read-only: code running in the sandbox must not be able to plant hooks or config
+            # (e.g. core.fsmonitor) that the host's git commands would later execute.
+            vols[str(git_dir)] = {"bind": "/workspace/.git", "mode": "ro"}
+        return vols
+
     def start(self):
         self.client = docker.from_env()
         self.container = self.client.containers.run(
@@ -20,7 +29,7 @@ class DockerSandbox:
             command="sleep infinity",
             detach=True,
             working_dir="/workspace",
-            volumes={str(self.repo_path): {"bind": "/workspace", "mode": "rw"}},
+            volumes=self.volumes(),
             environment={"PYTHONDONTWRITEBYTECODE": "1"},
             **self.limits.container_kwargs(),
         )

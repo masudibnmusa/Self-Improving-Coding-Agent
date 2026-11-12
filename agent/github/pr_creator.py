@@ -1,14 +1,13 @@
-import subprocess
-
 import requests
 
 from agent.analysis.patch_validator import EXCLUDE_REPRO
+from agent.utils.git import redact, run_git
 
 
 def _git(repo_path, token: str, *args: str) -> str:
-    proc = subprocess.run(["git", "-C", str(repo_path), *args], capture_output=True, text=True)
+    proc = run_git(*args, repo=repo_path)
     if proc.returncode != 0:
-        raise RuntimeError(f"git {args[0]} failed: {proc.stderr.replace(token, '***')[-800:]}")
+        raise RuntimeError(redact(f"git {args[0]} failed: {proc.stderr[-800:]}", token))
     return proc.stdout
 
 

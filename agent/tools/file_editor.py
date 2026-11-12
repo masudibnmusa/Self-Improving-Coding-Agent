@@ -1,9 +1,9 @@
 import difflib
 import re
-import subprocess
 
 from agent.analysis.patch_validator import EXCLUDE_REPRO, is_repro_path, is_test_path
 from agent.tools.file_viewer import safe_path
+from agent.utils.git import run_git
 
 
 def _guard(path: str):
@@ -97,11 +97,8 @@ def create_file(ctx, path, content):
 
 
 def revert_changes(ctx):
-    def git(*args):
-        return subprocess.run(["git", "-C", str(ctx.repo_path), *args], capture_output=True, text=True)
-
-    git("checkout", "--", ".")
-    git("clean", "-fd", "--", ".", EXCLUDE_REPRO)
+    run_git("checkout", "--", ".", repo=ctx.repo_path)
+    run_git("clean", "-fd", "--", ".", EXCLUDE_REPRO, repo=ctx.repo_path)
     ctx.state.reset_for_new_attempt()
     return (f"Reverted all source changes (repro_* files kept). "
             f"Starting attempt #{ctx.state.attempts}. Form a different hypothesis.")

@@ -3,6 +3,8 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
+from agent.utils.git import run_git
+
 
 @dataclass
 class EnvSpec:
@@ -34,8 +36,7 @@ def build_image(repo_path, cfg) -> EnvSpec:
     language = detect_language(repo_path)
     dockerfile = render_dockerfile(repo_path, cfg.base_image)
 
-    sha = subprocess.run(["git", "-C", str(repo_path), "rev-parse", "HEAD"],
-                         capture_output=True, text=True).stdout.strip()
+    sha = run_git("rev-parse", "HEAD", repo=repo_path).stdout.strip()
     key = hashlib.sha1(f"{repo_path}{sha}{dockerfile}".encode()).hexdigest()[:12]
     tag = f"coding-agent-env:{key}"
 

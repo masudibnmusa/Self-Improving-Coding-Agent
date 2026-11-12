@@ -1,7 +1,8 @@
 import re
-import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
+
+from agent.utils.git import run_git
 
 TEST_PATTERNS = [
     re.compile(r"(^|/)tests?/"),
@@ -23,16 +24,18 @@ def is_repro_path(path: str) -> bool:
 
 
 def _git(repo, *args) -> str:
-    return subprocess.run(["git", "-C", str(repo), *args], capture_output=True, text=True).stdout
+    return run_git(*args, repo=repo).stdout
 
 
 def get_diff(repo) -> str:
     _git(repo, "add", "-N", ".")   # make new files show up in the diff
-    return _git(repo, "diff", "--", ".", EXCLUDE_REPRO)
+    # --no-ext-diff/--no-textconv: never run external diff programs from (untrusted) repo config.
+    return _git(repo, "diff", "--no-ext-diff", "--no-textconv", "--", ".", EXCLUDE_REPRO)
 
 
 def changed_files(repo) -> list[str]:
-    return [l for l in _git(repo, "diff", "--name-only", "--", ".", EXCLUDE_REPRO).splitlines() if l]
+    out = _git(repo, "diff", "--no-ext-diff", "--name-only", "--", ".", EXCLUDE_REPRO)
+    return [l for l in out.splitlines() if l]
 
 
 @dataclass
