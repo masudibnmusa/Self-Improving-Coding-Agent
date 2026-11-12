@@ -1,13 +1,15 @@
 import shutil
-import subprocess
 from pathlib import Path
+
+from agent.utils.git import redact, run_git
 
 
 def _git(args: list[str], token: str = "") -> str:
-    proc = subprocess.run(["git", *args], capture_output=True, text=True)
+    proc = run_git(*args)
     if proc.returncode != 0:
-        err = proc.stderr.replace(token, "***") if token else proc.stderr
-        raise RuntimeError(f"git {' '.join(args[:3])} failed: {err[-1000:]}")
+        # Redact the whole message: args can contain the authenticated clone URL.
+        msg = f"git {' '.join(args[:3])} failed: {proc.stderr[-1000:]}"
+        raise RuntimeError(redact(msg, token))
     return proc.stdout.strip()
 
 
