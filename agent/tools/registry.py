@@ -58,12 +58,15 @@ TOOL_SCHEMAS = [
           {"path": {"type": "string"}, "content": {"type": "string"}}, ["path", "content"]),
     _tool("run_tests",
           "Run pytest in the sandbox. scope='targeted' needs paths (e.g. 'repro_bug.py' or "
-          "'tests/test_x.py::test_y'). scope='full' runs the whole suite.",
+          "'tests/test_x.py::test_y'). scope='full' runs the whole suite; a full run before any edit "
+          "records pre-existing failures.",
           {"scope": {"type": "string", "enum": ["targeted", "full"]},
            "paths": {"type": "array", "items": {"type": "string"}}},
           ["scope"]),
     _tool("run_shell",
-          "Run a restricted read-only-ish command (ls, cat, head, tail, wc, find, python, pytest, git status/diff/log/show).",
+          "Run a restricted command (ls, cat, head, tail, wc, find, python, pytest, git status/diff/log/show) "
+          "in a disposable copy of the repo. File changes made here are discarded before each test run "
+          "and are NOT part of the patch: use str_replace/create_file to change code.",
           {"command": {"type": "string"}}, ["command"]),
     _tool("revert_changes",
           "Discard ALL source changes (reproduction files are kept) to try a different approach."),

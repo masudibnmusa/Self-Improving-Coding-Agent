@@ -1,9 +1,25 @@
 import difflib
 import re
 
-from agent.analysis.patch_validator import EXCLUDE_REPRO, is_repro_path, is_test_path
+from agent.analysis.patch_validator import (
+    EXCLUDE_REPRO, changes_pytest_config, is_repro_path, is_test_path,
+)
 from agent.tools.file_viewer import safe_path
 from agent.utils.git import run_git
+
+PYTEST_CONFIG_MSG = ("changing pytest configuration (e.g. addopts, testpaths, markers) is not allowed: "
+                     "it can hide failing tests. Fix the code instead.")
+
+
+def _read_exact(p) -> str:
+    # newline="": no newline translation, so CRLF files are not silently rewritten as LF.
+    with open(p, encoding="utf-8", newline="") as f:
+        return f.read()
+
+
+def _write_exact(p, text: str) -> None:
+    with open(p, "w", encoding="utf-8", newline="") as f:
+        f.write(text)
 
 
 def _guard(path: str):
@@ -58,7 +74,11 @@ def str_replace_edit(ctx, path, old_str, new_str):
     if not old_str:
         return "ERROR: old_str must not be empty"
 
-    text = p.read_text(encoding="utf-8")
+    raw = _read_exact(p)
+    # Match and edit on LF text (the model writes "\n"), then restore the file's own line endings.
+    # Only for files that are consistently CRLF; mixed files are edited byte-for-byte as they are.
+    crlf = "\r\n" in raw and raw.count("\r\n") == raw.count("\n")
+    text = raw.replace("\r\n", "\n") if crlf else raw
     count = text.count(old_str)
     if count == 0:
         return "ERROR: old_str not found in file. " + _not_found_hint(text, old_str)
@@ -71,8 +91,10 @@ def str_replace_edit(ctx, path, old_str, new_str):
     new_text = text[:idx] + new_str + text[idx + len(old_str):]
     if (err := _syntax_error(path, new_text)):
         return f"ERROR: edit rejected, it would cause a syntax error: {err}. File unchanged."
+    if changes_pytest_config(path, text, new_text):
+        return f"ERROR: {PYTEST_CONFIG_MSG} File unchanged."
 
-    p.write_text(new_text, encoding="utf-8")
+    _write_exact(p, new_text.replace("\n", "\r\n") if crlf else new_text)
     ctx.state.record_edit(str(path), "str_replace", is_source=not is_repro_path(str(path)))
     start_line = text.count("\n", 0, idx) + 1
     return "OK. Edited region:\n" + _snippet(new_text, start_line, new_str.count("\n") + 1)
@@ -89,9 +111,11 @@ def create_file(ctx, path, content):
         return f"ERROR: {path} already exists. Use str_replace to modify it."
     if (err := _syntax_error(path, content)):
         return f"ERROR: file rejected, syntax error: {err}"
+    if changes_pytest_config(path, "", content):
+        return f"ERROR: {PYTEST_CONFIG_MSG}"
 
     p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(content, encoding="utf-8")
+    _write_exact(p, content)
     ctx.state.record_edit(str(path), "create", is_source=not is_repro_path(str(path)))
     return f"OK. Created {path} ({content.count(chr(10)) + 1} lines)."
 

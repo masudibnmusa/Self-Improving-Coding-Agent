@@ -2,6 +2,8 @@ import ast
 import os
 from pathlib import Path
 
+from agent.tools.file_viewer import rel_path
+
 SKIP_DIRS = {".git", "node_modules", "__pycache__", ".venv", "venv", "build", "dist",
              ".tox", ".mypy_cache", ".pytest_cache"}
 OTHER_EXT = {".md", ".rst", ".toml", ".cfg", ".ini", ".js", ".ts", ".c", ".h", ".go", ".rs", ".java"}
@@ -56,4 +58,9 @@ def build_repo_map(repo_path, max_chars: int = 12000, subdir: str = "") -> str:
 
 
 def repo_map(ctx, path=""):
-    return build_repo_map(ctx.repo_path, ctx.config.tool_output_limit, path)
+    # Same path handling as the other tools: accepts "/workspace/..." and rejects escapes / .git.
+    try:
+        subdir = rel_path(ctx.repo_path, path or ".")
+    except ValueError as e:
+        return f"ERROR: {e}"
+    return build_repo_map(ctx.repo_path, ctx.config.tool_output_limit, "" if subdir == "." else subdir)

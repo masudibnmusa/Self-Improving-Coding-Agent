@@ -3,6 +3,8 @@ from pathlib import Path
 
 def normalize(path: str) -> str:
     path = str(path).strip()
+    if path == "/workspace":
+        return "."
     if path.startswith("/workspace/"):
         path = path[len("/workspace/"):]
     return path or "."
