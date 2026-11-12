@@ -21,7 +21,14 @@ def detect_language(repo) -> str:
 
 def render_dockerfile(repo, base_image: str) -> str:
     repo = Path(repo)
-    lines = [f"FROM {base_image}", "WORKDIR /workspace", "COPY . /workspace"]
+    lines = [
+        f"FROM {base_image}", "WORKDIR /workspace", "COPY . /workspace",
+        # The sandbox resets its working tree with git (see DockerSandbox.sync). If the repo's
+        # .dockerignore dropped .git, snapshot the copied tree as the baseline commit instead.
+        # This must happen BEFORE installing, so build output stays untracked.
+        "RUN [ -d .git ] || (git init -q && git add -A && "
+        "git -c user.name=sandbox -c user.email=sandbox@localhost commit -qm baseline)",
+    ]
     if (repo / "requirements.txt").exists():
         lines.append("RUN pip install -r requirements.txt || echo 'requirements install failed'")
     if (repo / "setup.py").exists() or (repo / "pyproject.toml").exists():

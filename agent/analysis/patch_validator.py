@@ -1,4 +1,6 @@
+import configparser
 import re
+import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -13,10 +15,42 @@ TEST_PATTERNS = [
 REPRO_PREFIX = "repro_"
 EXCLUDE_REPRO = ":(exclude,glob)**/repro_*"
 
+# Files that only configure pytest: treated like test files (never editable).
+PYTEST_ONLY_CONFIGS = {"pytest.ini", ".pytest.ini", "pytest.toml", ".pytest.toml"}
+# Shared config files: editable, but their pytest section must not change (e.g. adding
+# `addopts = -k "not test_that_fails"` would hide failures without touching a test file).
+SHARED_CONFIGS = {"setup.cfg", "pyproject.toml", "tox.ini"}
+_UNPARSEABLE = object()
+
 
 def is_test_path(path: str) -> bool:
     path = str(path).replace("\\", "/")
-    return any(p.search(path) for p in TEST_PATTERNS)
+    return Path(path).name in PYTEST_ONLY_CONFIGS or any(p.search(path) for p in TEST_PATTERNS)
+
+
+def pytest_settings(path: str, text: str):
+    """The pytest section of a shared config file, as comparable data (None if absent)."""
+    name = Path(str(path)).name
+    if not text:
+        return None
+    try:
+        if name == "pyproject.toml":
+            return tomllib.loads(text).get("tool", {}).get("pytest")
+        parser = configparser.ConfigParser(interpolation=None, strict=False)
+        parser.read_string(text)
+        section = "tool:pytest" if name == "setup.cfg" else "pytest"
+        return dict(parser[section]) if parser.has_section(section) else None
+    except (tomllib.TOMLDecodeError, configparser.Error):
+        return _UNPARSEABLE
+
+
+def changes_pytest_config(path: str, old_text: str, new_text: str) -> bool:
+    if Path(str(path)).name not in SHARED_CONFIGS:
+        return False
+    old, new = pytest_settings(path, old_text), pytest_settings(path, new_text)
+    if new is _UNPARSEABLE:
+        return old is not _UNPARSEABLE
+    return old != new
 
 
 def is_repro_path(path: str) -> bool:
@@ -58,6 +92,12 @@ def validate_patch(repo, max_changed_lines: int = 400) -> Validation:
     for f in files:
         if is_test_path(f):
             problems.append(f"modifies test file: {f}")
+        if Path(f).name in SHARED_CONFIGS:
+            old = run_git("show", f"HEAD:{f}", repo=repo)
+            new_path = Path(repo) / f
+            new = new_path.read_text(encoding="utf-8", errors="replace") if new_path.is_file() else ""
+            if changes_pytest_config(f, old.stdout if old.returncode == 0 else "", new):
+                problems.append(f"changes pytest configuration in {f}")
         if f.endswith(".py"):
             try:
                 compile((Path(repo) / f).read_text(encoding="utf-8"), f, "exec")

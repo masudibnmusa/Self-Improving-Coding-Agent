@@ -79,11 +79,11 @@ def test_host_git_ignores_hooks(tmp_path):
     assert not marker.exists()
 
 
-def test_sandbox_mounts_git_read_only(tmp_path):
-    repo = git_repo(tmp_path)
-    vols = DockerSandbox("img", repo, limits=None).volumes()
-    assert vols[str(repo.resolve())]["mode"] == "rw"
-    assert vols[str(repo.resolve() / ".git")] == {"bind": "/workspace/.git", "mode": "ro"}
+def test_sandbox_mounts_nothing_from_host():
+    """The host repo (and its .git) must not be reachable from the container."""
+    import inspect
+    src = inspect.getsource(DockerSandbox.start)
+    assert "volumes" not in src and "mounts" not in src
 
 
 # --- secrets ----------------------------------------------------------------------------

@@ -20,7 +20,6 @@ class ResourceLimits:
             "mem_limit": self.memory,
             "pids_limit": self.pids,
             "network_mode": self.network,
-            "cap_drop": ["ALL"],
-            "cap_add": ["DAC_OVERRIDE"],   # lets root write host-owned bind-mounted files
+            "cap_drop": ["ALL"],   # nothing is bind-mounted, so no extra capabilities are needed
             "security_opt": ["no-new-privileges"],
         }

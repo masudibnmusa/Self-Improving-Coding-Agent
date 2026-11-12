@@ -1,6 +1,12 @@
 from dataclasses import dataclass, field
 
 
+def _covers(run_path: str, target: str) -> bool:
+    """Whether running `run_path` (file, dir or node id) also runs `target`."""
+    run_path = run_path.rstrip("/")
+    return target == run_path or target.startswith((run_path + "::", run_path + "/"))
+
+
 @dataclass
 class AgentState:
     require_repro: bool = True
@@ -10,6 +16,8 @@ class AgentState:
     test_runs: list = field(default_factory=list)
     source_edits: int = 0
     reproduced: bool = False
+    repro_targets: list = field(default_factory=list)   # test paths that reproduced the bug
+    baseline_failures: set | None = None   # failing node ids of the unmodified code (full suite)
     finished: bool = False
     finish_status: str = ""
     finish_summary: str = ""
@@ -28,14 +36,23 @@ class AgentState:
             self.source_edits += 1
             self._last_source_edit_seq = seq
 
-    def record_test(self, result):
-        # A failing targeted run before any source edit counts as a reproduction.
-        if not result.ok and result.scope == "targeted" and self.source_edits == 0:
+    def record_test(self, result, paths=()):
+        paths = [str(p) for p in paths]
+        unmodified = self.source_edits == 0   # source is at the original commit (or reverted to it)
+
+        # Only genuine test failures reproduce a bug: not "file not found", collection/syntax
+        # errors, "no tests collected", timeouts or fixture errors (see PytestResult.reproduces_bug).
+        if unmodified and result.scope == "targeted" and result.reproduces_bug:
             self.reproduced = True
+            self.repro_targets += [p for p in paths if p not in self.repro_targets]
+        if unmodified and result.scope == "full" and result.complete:
+            self.baseline_failures = set(result.failed_ids)
+
         self.test_runs.append({
-            "step": self.step, "seq": self._next(), "scope": result.scope,
-            "ok": result.ok, "passed": result.passed, "failed": result.failed,
-            "errors": result.errors, "signature": result.signature(),
+            "step": self.step, "seq": self._next(), "scope": result.scope, "paths": paths,
+            "ok": result.ok, "complete": result.complete, "passed": result.passed,
+            "failed": result.failed, "errors": result.errors,
+            "failed_ids": list(result.failed_ids), "signature": result.signature(),
         })
 
     def consecutive_same_failure(self) -> int:
@@ -50,14 +67,27 @@ class AgentState:
             count += 1
         return count
 
+    def _no_new_failures(self, run) -> bool:
+        """Full run passed, or it failed only on tests that already failed before any edit."""
+        if run["ok"]:
+            return True
+        return (self.baseline_failures is not None and run["complete"]
+                and set(run["failed_ids"]) <= self.baseline_failures)
+
     def verified(self) -> bool:
-        """Full suite passed after the most recent source edit."""
+        """After the most recent source edit: every test that reproduced the bug passes, and the full
+        suite shows no failures beyond those present on the unmodified code."""
         if self.source_edits == 0:
             return False
         if self.require_repro and not self.reproduced:
             return False
-        full = [r for r in self.test_runs if r["scope"] == "full"]
-        return bool(full) and full[-1]["ok"] and full[-1]["seq"] > self._last_source_edit_seq
+        after = [r for r in self.test_runs if r["seq"] > self._last_source_edit_seq]
+        for target in self.repro_targets:
+            if not any(r["scope"] == "targeted" and r["ok"] and any(_covers(p, target) for p in r["paths"])
+                       for r in after):
+                return False
+        full = [r for r in after if r["scope"] == "full"]
+        return bool(full) and self._no_new_failures(full[-1])
 
     def reset_for_new_attempt(self):
         self.attempts += 1

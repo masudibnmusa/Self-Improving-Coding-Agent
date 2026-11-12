@@ -25,7 +25,7 @@ from agent.utils.trajectory_logger import TrajectoryLogger
 @dataclass
 class TaskResult:
     run_id: str
-    status: str                 # "resolved" | "unresolved"
+    status: str                 # "resolved" | "unverified" | "unresolved"
     reason: str
     verified: bool
     steps: int
@@ -66,11 +66,17 @@ def run_task(issue, repo_path, cfg: Config, open_pr: bool = False, run_id: str |
         Path(patch_path).write_text(validation.diff)
 
     verified = state.verified()
-    resolved = validation.ok and (verified or state.finish_status == "done")
+    # "resolved" requires test evidence. The agent claiming success without it is "unverified".
+    if validation.ok and verified:
+        status = "resolved"
+    elif validation.ok and state.finish_status == "done":
+        status = "unverified"
+    else:
+        status = "unresolved"
     summary = state.finish_summary or f"Stopped: {outcome.reason}"
 
     pr_url = ""
-    if open_pr and validation.ok:
+    if open_pr and status == "resolved":
         try:
             pr_url = create_pr(issue, repo_path, summary, cfg.github_token)
         except Exception as e:  # PR failure shouldn't lose the result
@@ -78,7 +84,9 @@ def run_task(issue, repo_path, cfg: Config, open_pr: bool = False, run_id: str |
 
     logger.meta.update({
         "run_id": run_id, "reason": outcome.reason, "verified": verified,
-        "reproduced": state.reproduced, "finish_status": state.finish_status,
+        "reproduced": state.reproduced, "repro_targets": state.repro_targets,
+        "baseline_failures": sorted(state.baseline_failures or []),
+        "status": status, "finish_status": state.finish_status,
         "steps": state.step, "attempts": state.attempts,
         "test_runs": state.test_runs, "problems": validation.problems,
         "cost": cost.summary(),
@@ -86,7 +94,7 @@ def run_task(issue, repo_path, cfg: Config, open_pr: bool = False, run_id: str |
     logger.save()
 
     return TaskResult(
-        run_id=run_id, status="resolved" if resolved else "unresolved",
+        run_id=run_id, status=status,
         reason=outcome.reason, verified=verified, steps=state.step,
         cost=round(cost.total_cost, 4), patch=validation.diff, patch_path=patch_path,
         summary=summary, problems=validation.problems, pr_url=pr_url,
