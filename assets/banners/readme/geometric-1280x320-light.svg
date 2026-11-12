@@ -1,0 +1,489 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="320" viewBox="0 0 1280 320" role="img" aria-labelledby="t d">
+<title id="t">Self-Improving Coding Agent</title>
+<desc id="d">Autonomous GitHub issue resolver: reproduces the bug, fixes it in a Docker sandbox, and proves the fix with tests before opening a PR. Run it with: agent solve followed by an issue URL.</desc>
+<defs><style>
+/* primitive */
+svg {
+  --color-white: #FFFFFF;
+  --color-slate-50: #F8FAFC;
+  --color-slate-100: #F1F5F9;
+  --color-slate-200: #E2E8F0;
+  --color-slate-300: #CBD5E1;
+  --color-slate-400: #94A3B8;
+  --color-slate-500: #64748B;
+  --color-slate-600: #475569;
+  --color-slate-700: #334155;
+  --color-slate-800: #1E293B;
+  --color-slate-900: #0F172A;
+  --color-github-canvas-dark: #0D1117;
+  --color-github-surface-dark: #161B22;
+  --color-blue-50: #EFF6FF;
+  --color-blue-300: #93C5FD;
+  --color-blue-400: #60A5FA;
+  --color-blue-500: #3B82F6;
+  --color-blue-700: #1D4ED8;
+  --color-blue-950: #0B1A33;
+  --color-amber-50: #FFFBEB;
+  --color-amber-300: #FCD34D;
+  --color-amber-400: #FBBF24;
+  --color-amber-500: #F59E0B;
+  --color-amber-700: #B45309;
+  --color-amber-950: #2A1B05;
+  --color-violet-50: #F5F3FF;
+  --color-violet-300: #C4B5FD;
+  --color-violet-400: #A78BFA;
+  --color-violet-500: #8B5CF6;
+  --color-violet-700: #6D28D9;
+  --color-violet-950: #1E1438;
+  --color-emerald-50: #ECFDF5;
+  --color-emerald-300: #6EE7B7;
+  --color-emerald-400: #34D399;
+  --color-emerald-500: #10B981;
+  --color-emerald-700: #047857;
+  --color-emerald-950: #062A1F;
+  --color-rose-50: #FFF1F2;
+  --color-rose-300: #FDA4AF;
+  --color-rose-500: #F43F5E;
+  --color-rose-700: #BE123C;
+  --color-rose-950: #2D0A12;
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+  --fontSize-2xs: 10px;
+  --fontSize-xs: 11px;
+  --fontSize-sm: 12px;
+  --fontSize-md: 13px;
+  --fontSize-lg: 15px;
+  --fontSize-xl: 20px;
+  --fontSize-2xl: 22px;
+  --fontSize-4xl: 46px;
+  --fontWeight-regular: 400;
+  --fontWeight-semibold: 600;
+  --fontWeight-bold: 700;
+  --stroke-thin: 1px;
+  --stroke-base: 1.5px;
+}
+/* semantic (light) */
+svg {
+  --canvas: var(--color-white);
+  --surface: var(--color-slate-50);
+  --fg: var(--color-slate-900);
+  --fg-muted: var(--color-slate-500);
+  --border: var(--color-slate-300);
+  --connector: var(--color-slate-400);
+  --neutral-bg: var(--color-white);
+  --neutral-border: var(--color-slate-300);
+  --neutral-accent: var(--color-slate-600);
+  --host-bg: var(--color-blue-50);
+  --host-border: var(--color-blue-500);
+  --host-accent: var(--color-blue-700);
+  --sandbox-bg: var(--color-amber-50);
+  --sandbox-border: var(--color-amber-500);
+  --sandbox-accent: var(--color-amber-700);
+  --llm-bg: var(--color-violet-50);
+  --llm-border: var(--color-violet-500);
+  --llm-accent: var(--color-violet-700);
+  --output-bg: var(--color-emerald-50);
+  --output-border: var(--color-emerald-500);
+  --output-accent: var(--color-emerald-700);
+  --success: var(--color-emerald-700);
+  --success-bg: var(--color-emerald-50);
+  --warning: var(--color-amber-700);
+  --warning-bg: var(--color-amber-50);
+  --danger: var(--color-rose-700);
+  --danger-bg: var(--color-rose-50);
+}
+/* component */
+svg {
+  --diagram-bg: var(--canvas);
+  --title-color: var(--fg);
+  --section-color: var(--fg-muted);
+  --frame-bg: var(--surface);
+  --frame-stroke: var(--border);
+  --node-title-color: var(--fg);
+  --node-sub-color: var(--fg-muted);
+  --connector-stroke: var(--connector);
+  --connector-label: var(--fg-muted);
+  --chip-bg: var(--canvas);
+  --font-ui: var(--font-sans);
+  --font-code: var(--font-mono);
+  --size-title: var(--fontSize-lg);
+  --size-node-title: var(--fontSize-md);
+  --size-node-sub: var(--fontSize-xs);
+  --size-kicker: var(--fontSize-2xs);
+  --size-label: var(--fontSize-xs);
+  --size-chip: var(--fontSize-sm);
+  --weight-strong: var(--fontWeight-semibold);
+  --weight-kicker: var(--fontWeight-bold);
+  --stroke-node: var(--stroke-base);
+  --stroke-connector: var(--stroke-base);
+  --stroke-frame: var(--stroke-thin);
+  --banner-bg: var(--canvas);
+  --banner-headline: var(--fg);
+  --banner-body: var(--fg-muted);
+  --banner-rule: var(--border);
+  --banner-cta-bg: var(--surface);
+  --banner-cta-stroke: var(--border);
+  --banner-cta-text: var(--fg);
+  --banner-decor: var(--border);
+  --size-banner-headline: var(--fontSize-4xl);
+  --size-banner-body: var(--fontSize-xl);
+  --size-banner-cta: var(--fontSize-lg);
+  --size-banner-step: var(--fontSize-xl);
+  --size-banner-step-sub: var(--fontSize-lg);
+  --size-banner-term: var(--fontSize-lg);
+  --weight-banner-headline: var(--fontWeight-bold);
+  --size-banner-kicker: var(--fontSize-md);
+  --node-neutral-fill: var(--neutral-bg);
+  --node-neutral-stroke: var(--neutral-border);
+  --node-neutral-kicker: var(--neutral-accent);
+  --node-host-fill: var(--host-bg);
+  --node-host-stroke: var(--host-border);
+  --node-host-kicker: var(--host-accent);
+  --node-sandbox-fill: var(--sandbox-bg);
+  --node-sandbox-stroke: var(--sandbox-border);
+  --node-sandbox-kicker: var(--sandbox-accent);
+  --node-llm-fill: var(--llm-bg);
+  --node-llm-stroke: var(--llm-border);
+  --node-llm-kicker: var(--llm-accent);
+  --node-output-fill: var(--output-bg);
+  --node-output-stroke: var(--output-border);
+  --node-output-kicker: var(--output-accent);
+  --status-success-fill: var(--success-bg);
+  --status-success-text: var(--success);
+  --status-warning-fill: var(--warning-bg);
+  --status-warning-text: var(--warning);
+  --status-danger-fill: var(--danger-bg);
+  --status-danger-text: var(--danger);
+}
+
+.bg { fill: var(--banner-bg); }
+.kicker { font: var(--weight-kicker) var(--size-banner-kicker) var(--font-ui); letter-spacing: .14em; fill: var(--llm-accent); }
+.headline { font: var(--weight-banner-headline) var(--size-banner-headline) var(--font-ui);
+            fill: var(--banner-headline); letter-spacing: -.01em; }
+.body { font: var(--size-banner-body) var(--font-ui); fill: var(--banner-body); }
+.cta-box { fill: var(--banner-cta-bg); stroke: var(--banner-cta-stroke); stroke-width: var(--stroke-frame); }
+.cta { font: var(--size-banner-cta) var(--font-code); fill: var(--banner-cta-text); }
+.cta-prompt { font: var(--size-banner-cta) var(--font-code); fill: var(--output-accent); }
+.rule { stroke: var(--banner-rule); stroke-width: var(--stroke-frame); }
+.decor { fill: var(--banner-decor); }
+.step-title { font: var(--weight-strong) var(--size-banner-step) var(--font-ui); fill: var(--banner-headline); }
+.step-sub { font: var(--size-banner-step-sub) var(--font-code); fill: var(--banner-body); }
+.loop-label { font: var(--weight-strong) var(--size-banner-step-sub) var(--font-code); }
+.loop-center { font: var(--weight-strong) var(--size-banner-step) var(--font-ui); fill: var(--banner-headline); }
+.loop-center-sub { font: var(--size-banner-step-sub) var(--font-ui); fill: var(--banner-body); }
+.term { fill: var(--surface); stroke: var(--border); stroke-width: var(--stroke-frame); }
+.term-bar { fill: var(--banner-bg); }
+.term-text { font: var(--size-banner-term) var(--font-code); fill: var(--banner-headline); }
+.term-dim { font: var(--size-banner-term) var(--font-code); fill: var(--banner-body); }
+.llm-fill { fill: var(--llm-bg); stroke: var(--llm-border); stroke-width: var(--stroke-node); }
+.llm-solid { fill: var(--llm-border); }
+.llm-stroke { fill: none; stroke: var(--llm-border); stroke-width: 6; stroke-linecap: round; }
+.llm-text { fill: var(--llm-accent); }
+.host-fill { fill: var(--host-bg); stroke: var(--host-border); stroke-width: var(--stroke-node); }
+.host-solid { fill: var(--host-border); }
+.host-stroke { fill: none; stroke: var(--host-border); stroke-width: 6; stroke-linecap: round; }
+.host-text { fill: var(--host-accent); }
+.sandbox-fill { fill: var(--sandbox-bg); stroke: var(--sandbox-border); stroke-width: var(--stroke-node); }
+.sandbox-solid { fill: var(--sandbox-border); }
+.sandbox-stroke { fill: none; stroke: var(--sandbox-border); stroke-width: 6; stroke-linecap: round; }
+.sandbox-text { fill: var(--sandbox-accent); }
+.output-fill { fill: var(--output-bg); stroke: var(--output-border); stroke-width: var(--stroke-node); }
+.output-solid { fill: var(--output-border); }
+.output-stroke { fill: none; stroke: var(--output-border); stroke-width: 6; stroke-linecap: round; }
+.output-text { fill: var(--output-accent); }
+</style></defs>
+<rect width="1280" height="320" class="bg"/>
+<circle cx="772" cy="20" r="1.1" class="decor"/>
+<circle cx="772" cy="44" r="1.1" class="decor"/>
+<circle cx="772" cy="68" r="1.1" class="decor"/>
+<circle cx="772" cy="92" r="1.1" class="decor"/>
+<circle cx="772" cy="116" r="1.1" class="decor"/>
+<circle cx="772" cy="140" r="1.1" class="decor"/>
+<circle cx="772" cy="164" r="1.1" class="decor"/>
+<circle cx="772" cy="188" r="1.1" class="decor"/>
+<circle cx="772" cy="212" r="1.1" class="decor"/>
+<circle cx="772" cy="236" r="1.1" class="decor"/>
+<circle cx="772" cy="260" r="1.1" class="decor"/>
+<circle cx="772" cy="284" r="1.1" class="decor"/>
+<circle cx="772" cy="308" r="1.1" class="decor"/>
+<circle cx="796" cy="20" r="1.1" class="decor"/>
+<circle cx="796" cy="44" r="1.1" class="decor"/>
+<circle cx="796" cy="68" r="1.1" class="decor"/>
+<circle cx="796" cy="92" r="1.1" class="decor"/>
+<circle cx="796" cy="116" r="1.1" class="decor"/>
+<circle cx="796" cy="140" r="1.1" class="decor"/>
+<circle cx="796" cy="164" r="1.1" class="decor"/>
+<circle cx="796" cy="188" r="1.1" class="decor"/>
+<circle cx="796" cy="212" r="1.1" class="decor"/>
+<circle cx="796" cy="236" r="1.1" class="decor"/>
+<circle cx="796" cy="260" r="1.1" class="decor"/>
+<circle cx="796" cy="284" r="1.1" class="decor"/>
+<circle cx="796" cy="308" r="1.1" class="decor"/>
+<circle cx="820" cy="20" r="1.1" class="decor"/>
+<circle cx="820" cy="44" r="1.1" class="decor"/>
+<circle cx="820" cy="68" r="1.1" class="decor"/>
+<circle cx="820" cy="92" r="1.1" class="decor"/>
+<circle cx="820" cy="116" r="1.1" class="decor"/>
+<circle cx="820" cy="140" r="1.1" class="decor"/>
+<circle cx="820" cy="164" r="1.1" class="decor"/>
+<circle cx="820" cy="188" r="1.1" class="decor"/>
+<circle cx="820" cy="212" r="1.1" class="decor"/>
+<circle cx="820" cy="236" r="1.1" class="decor"/>
+<circle cx="820" cy="260" r="1.1" class="decor"/>
+<circle cx="820" cy="284" r="1.1" class="decor"/>
+<circle cx="820" cy="308" r="1.1" class="decor"/>
+<circle cx="844" cy="20" r="1.1" class="decor"/>
+<circle cx="844" cy="44" r="1.1" class="decor"/>
+<circle cx="844" cy="68" r="1.1" class="decor"/>
+<circle cx="844" cy="92" r="1.1" class="decor"/>
+<circle cx="844" cy="116" r="1.1" class="decor"/>
+<circle cx="844" cy="140" r="1.1" class="decor"/>
+<circle cx="844" cy="164" r="1.1" class="decor"/>
+<circle cx="844" cy="188" r="1.1" class="decor"/>
+<circle cx="844" cy="212" r="1.1" class="decor"/>
+<circle cx="844" cy="236" r="1.1" class="decor"/>
+<circle cx="844" cy="260" r="1.1" class="decor"/>
+<circle cx="844" cy="284" r="1.1" class="decor"/>
+<circle cx="844" cy="308" r="1.1" class="decor"/>
+<circle cx="868" cy="20" r="1.6" class="decor"/>
+<circle cx="868" cy="44" r="1.6" class="decor"/>
+<circle cx="868" cy="68" r="1.6" class="decor"/>
+<circle cx="868" cy="92" r="1.6" class="decor"/>
+<circle cx="868" cy="116" r="1.6" class="decor"/>
+<circle cx="868" cy="140" r="1.6" class="decor"/>
+<circle cx="868" cy="164" r="1.6" class="decor"/>
+<circle cx="868" cy="188" r="1.6" class="decor"/>
+<circle cx="868" cy="212" r="1.6" class="decor"/>
+<circle cx="868" cy="236" r="1.6" class="decor"/>
+<circle cx="868" cy="260" r="1.6" class="decor"/>
+<circle cx="868" cy="284" r="1.6" class="decor"/>
+<circle cx="868" cy="308" r="1.6" class="decor"/>
+<circle cx="892" cy="20" r="1.6" class="decor"/>
+<circle cx="892" cy="44" r="1.6" class="decor"/>
+<circle cx="892" cy="68" r="1.6" class="decor"/>
+<circle cx="892" cy="92" r="1.6" class="decor"/>
+<circle cx="892" cy="116" r="1.6" class="decor"/>
+<circle cx="892" cy="140" r="1.6" class="decor"/>
+<circle cx="892" cy="164" r="1.6" class="decor"/>
+<circle cx="892" cy="188" r="1.6" class="decor"/>
+<circle cx="892" cy="212" r="1.6" class="decor"/>
+<circle cx="892" cy="236" r="1.6" class="decor"/>
+<circle cx="892" cy="260" r="1.6" class="decor"/>
+<circle cx="892" cy="284" r="1.6" class="decor"/>
+<circle cx="892" cy="308" r="1.6" class="decor"/>
+<circle cx="916" cy="20" r="1.6" class="decor"/>
+<circle cx="916" cy="44" r="1.6" class="decor"/>
+<circle cx="916" cy="68" r="1.6" class="decor"/>
+<circle cx="916" cy="92" r="1.6" class="decor"/>
+<circle cx="916" cy="116" r="1.6" class="decor"/>
+<circle cx="916" cy="140" r="1.6" class="decor"/>
+<circle cx="916" cy="164" r="1.6" class="decor"/>
+<circle cx="916" cy="188" r="1.6" class="decor"/>
+<circle cx="916" cy="212" r="1.6" class="decor"/>
+<circle cx="916" cy="236" r="1.6" class="decor"/>
+<circle cx="916" cy="260" r="1.6" class="decor"/>
+<circle cx="916" cy="284" r="1.6" class="decor"/>
+<circle cx="916" cy="308" r="1.6" class="decor"/>
+<circle cx="940" cy="20" r="1.6" class="decor"/>
+<circle cx="940" cy="44" r="1.6" class="decor"/>
+<circle cx="940" cy="68" r="1.6" class="decor"/>
+<circle cx="940" cy="92" r="1.6" class="decor"/>
+<circle cx="940" cy="116" r="1.6" class="decor"/>
+<circle cx="940" cy="140" r="1.6" class="decor"/>
+<circle cx="940" cy="164" r="1.6" class="decor"/>
+<circle cx="940" cy="188" r="1.6" class="decor"/>
+<circle cx="940" cy="212" r="1.6" class="decor"/>
+<circle cx="940" cy="236" r="1.6" class="decor"/>
+<circle cx="940" cy="260" r="1.6" class="decor"/>
+<circle cx="940" cy="284" r="1.6" class="decor"/>
+<circle cx="940" cy="308" r="1.6" class="decor"/>
+<circle cx="964" cy="20" r="1.6" class="decor"/>
+<circle cx="964" cy="44" r="1.6" class="decor"/>
+<circle cx="964" cy="68" r="1.6" class="decor"/>
+<circle cx="964" cy="92" r="1.6" class="decor"/>
+<circle cx="964" cy="116" r="1.6" class="decor"/>
+<circle cx="964" cy="140" r="1.6" class="decor"/>
+<circle cx="964" cy="164" r="1.6" class="decor"/>
+<circle cx="964" cy="188" r="1.6" class="decor"/>
+<circle cx="964" cy="212" r="1.6" class="decor"/>
+<circle cx="964" cy="236" r="1.6" class="decor"/>
+<circle cx="964" cy="260" r="1.6" class="decor"/>
+<circle cx="964" cy="284" r="1.6" class="decor"/>
+<circle cx="964" cy="308" r="1.6" class="decor"/>
+<circle cx="988" cy="20" r="1.6" class="decor"/>
+<circle cx="988" cy="44" r="1.6" class="decor"/>
+<circle cx="988" cy="68" r="1.6" class="decor"/>
+<circle cx="988" cy="92" r="1.6" class="decor"/>
+<circle cx="988" cy="116" r="1.6" class="decor"/>
+<circle cx="988" cy="140" r="1.6" class="decor"/>
+<circle cx="988" cy="164" r="1.6" class="decor"/>
+<circle cx="988" cy="188" r="1.6" class="decor"/>
+<circle cx="988" cy="212" r="1.6" class="decor"/>
+<circle cx="988" cy="236" r="1.6" class="decor"/>
+<circle cx="988" cy="260" r="1.6" class="decor"/>
+<circle cx="988" cy="284" r="1.6" class="decor"/>
+<circle cx="988" cy="308" r="1.6" class="decor"/>
+<circle cx="1012" cy="20" r="1.6" class="decor"/>
+<circle cx="1012" cy="44" r="1.6" class="decor"/>
+<circle cx="1012" cy="68" r="1.6" class="decor"/>
+<circle cx="1012" cy="92" r="1.6" class="decor"/>
+<circle cx="1012" cy="116" r="1.6" class="decor"/>
+<circle cx="1012" cy="140" r="1.6" class="decor"/>
+<circle cx="1012" cy="164" r="1.6" class="decor"/>
+<circle cx="1012" cy="188" r="1.6" class="decor"/>
+<circle cx="1012" cy="212" r="1.6" class="decor"/>
+<circle cx="1012" cy="236" r="1.6" class="decor"/>
+<circle cx="1012" cy="260" r="1.6" class="decor"/>
+<circle cx="1012" cy="284" r="1.6" class="decor"/>
+<circle cx="1012" cy="308" r="1.6" class="decor"/>
+<circle cx="1036" cy="20" r="1.6" class="decor"/>
+<circle cx="1036" cy="44" r="1.6" class="decor"/>
+<circle cx="1036" cy="68" r="1.6" class="decor"/>
+<circle cx="1036" cy="92" r="1.6" class="decor"/>
+<circle cx="1036" cy="116" r="1.6" class="decor"/>
+<circle cx="1036" cy="140" r="1.6" class="decor"/>
+<circle cx="1036" cy="164" r="1.6" class="decor"/>
+<circle cx="1036" cy="188" r="1.6" class="decor"/>
+<circle cx="1036" cy="212" r="1.6" class="decor"/>
+<circle cx="1036" cy="236" r="1.6" class="decor"/>
+<circle cx="1036" cy="260" r="1.6" class="decor"/>
+<circle cx="1036" cy="284" r="1.6" class="decor"/>
+<circle cx="1036" cy="308" r="1.6" class="decor"/>
+<circle cx="1060" cy="20" r="1.6" class="decor"/>
+<circle cx="1060" cy="44" r="1.6" class="decor"/>
+<circle cx="1060" cy="68" r="1.6" class="decor"/>
+<circle cx="1060" cy="92" r="1.6" class="decor"/>
+<circle cx="1060" cy="116" r="1.6" class="decor"/>
+<circle cx="1060" cy="140" r="1.6" class="decor"/>
+<circle cx="1060" cy="164" r="1.6" class="decor"/>
+<circle cx="1060" cy="188" r="1.6" class="decor"/>
+<circle cx="1060" cy="212" r="1.6" class="decor"/>
+<circle cx="1060" cy="236" r="1.6" class="decor"/>
+<circle cx="1060" cy="260" r="1.6" class="decor"/>
+<circle cx="1060" cy="284" r="1.6" class="decor"/>
+<circle cx="1060" cy="308" r="1.6" class="decor"/>
+<circle cx="1084" cy="20" r="1.6" class="decor"/>
+<circle cx="1084" cy="44" r="1.6" class="decor"/>
+<circle cx="1084" cy="68" r="1.6" class="decor"/>
+<circle cx="1084" cy="92" r="1.6" class="decor"/>
+<circle cx="1084" cy="116" r="1.6" class="decor"/>
+<circle cx="1084" cy="140" r="1.6" class="decor"/>
+<circle cx="1084" cy="164" r="1.6" class="decor"/>
+<circle cx="1084" cy="188" r="1.6" class="decor"/>
+<circle cx="1084" cy="212" r="1.6" class="decor"/>
+<circle cx="1084" cy="236" r="1.6" class="decor"/>
+<circle cx="1084" cy="260" r="1.6" class="decor"/>
+<circle cx="1084" cy="284" r="1.6" class="decor"/>
+<circle cx="1084" cy="308" r="1.6" class="decor"/>
+<circle cx="1108" cy="20" r="1.6" class="decor"/>
+<circle cx="1108" cy="44" r="1.6" class="decor"/>
+<circle cx="1108" cy="68" r="1.6" class="decor"/>
+<circle cx="1108" cy="92" r="1.6" class="decor"/>
+<circle cx="1108" cy="116" r="1.6" class="decor"/>
+<circle cx="1108" cy="140" r="1.6" class="decor"/>
+<circle cx="1108" cy="164" r="1.6" class="decor"/>
+<circle cx="1108" cy="188" r="1.6" class="decor"/>
+<circle cx="1108" cy="212" r="1.6" class="decor"/>
+<circle cx="1108" cy="236" r="1.6" class="decor"/>
+<circle cx="1108" cy="260" r="1.6" class="decor"/>
+<circle cx="1108" cy="284" r="1.6" class="decor"/>
+<circle cx="1108" cy="308" r="1.6" class="decor"/>
+<circle cx="1132" cy="20" r="1.6" class="decor"/>
+<circle cx="1132" cy="44" r="1.6" class="decor"/>
+<circle cx="1132" cy="68" r="1.6" class="decor"/>
+<circle cx="1132" cy="92" r="1.6" class="decor"/>
+<circle cx="1132" cy="116" r="1.6" class="decor"/>
+<circle cx="1132" cy="140" r="1.6" class="decor"/>
+<circle cx="1132" cy="164" r="1.6" class="decor"/>
+<circle cx="1132" cy="188" r="1.6" class="decor"/>
+<circle cx="1132" cy="212" r="1.6" class="decor"/>
+<circle cx="1132" cy="236" r="1.6" class="decor"/>
+<circle cx="1132" cy="260" r="1.6" class="decor"/>
+<circle cx="1132" cy="284" r="1.6" class="decor"/>
+<circle cx="1132" cy="308" r="1.6" class="decor"/>
+<circle cx="1156" cy="20" r="1.6" class="decor"/>
+<circle cx="1156" cy="44" r="1.6" class="decor"/>
+<circle cx="1156" cy="68" r="1.6" class="decor"/>
+<circle cx="1156" cy="92" r="1.6" class="decor"/>
+<circle cx="1156" cy="116" r="1.6" class="decor"/>
+<circle cx="1156" cy="140" r="1.6" class="decor"/>
+<circle cx="1156" cy="164" r="1.6" class="decor"/>
+<circle cx="1156" cy="188" r="1.6" class="decor"/>
+<circle cx="1156" cy="212" r="1.6" class="decor"/>
+<circle cx="1156" cy="236" r="1.6" class="decor"/>
+<circle cx="1156" cy="260" r="1.6" class="decor"/>
+<circle cx="1156" cy="284" r="1.6" class="decor"/>
+<circle cx="1156" cy="308" r="1.6" class="decor"/>
+<circle cx="1180" cy="20" r="1.6" class="decor"/>
+<circle cx="1180" cy="44" r="1.6" class="decor"/>
+<circle cx="1180" cy="68" r="1.6" class="decor"/>
+<circle cx="1180" cy="92" r="1.6" class="decor"/>
+<circle cx="1180" cy="116" r="1.6" class="decor"/>
+<circle cx="1180" cy="140" r="1.6" class="decor"/>
+<circle cx="1180" cy="164" r="1.6" class="decor"/>
+<circle cx="1180" cy="188" r="1.6" class="decor"/>
+<circle cx="1180" cy="212" r="1.6" class="decor"/>
+<circle cx="1180" cy="236" r="1.6" class="decor"/>
+<circle cx="1180" cy="260" r="1.6" class="decor"/>
+<circle cx="1180" cy="284" r="1.6" class="decor"/>
+<circle cx="1180" cy="308" r="1.6" class="decor"/>
+<circle cx="1204" cy="20" r="1.6" class="decor"/>
+<circle cx="1204" cy="44" r="1.6" class="decor"/>
+<circle cx="1204" cy="68" r="1.6" class="decor"/>
+<circle cx="1204" cy="92" r="1.6" class="decor"/>
+<circle cx="1204" cy="116" r="1.6" class="decor"/>
+<circle cx="1204" cy="140" r="1.6" class="decor"/>
+<circle cx="1204" cy="164" r="1.6" class="decor"/>
+<circle cx="1204" cy="188" r="1.6" class="decor"/>
+<circle cx="1204" cy="212" r="1.6" class="decor"/>
+<circle cx="1204" cy="236" r="1.6" class="decor"/>
+<circle cx="1204" cy="260" r="1.6" class="decor"/>
+<circle cx="1204" cy="284" r="1.6" class="decor"/>
+<circle cx="1204" cy="308" r="1.6" class="decor"/>
+<circle cx="1228" cy="20" r="1.6" class="decor"/>
+<circle cx="1228" cy="44" r="1.6" class="decor"/>
+<circle cx="1228" cy="68" r="1.6" class="decor"/>
+<circle cx="1228" cy="92" r="1.6" class="decor"/>
+<circle cx="1228" cy="116" r="1.6" class="decor"/>
+<circle cx="1228" cy="140" r="1.6" class="decor"/>
+<circle cx="1228" cy="164" r="1.6" class="decor"/>
+<circle cx="1228" cy="188" r="1.6" class="decor"/>
+<circle cx="1228" cy="212" r="1.6" class="decor"/>
+<circle cx="1228" cy="236" r="1.6" class="decor"/>
+<circle cx="1228" cy="260" r="1.6" class="decor"/>
+<circle cx="1228" cy="284" r="1.6" class="decor"/>
+<circle cx="1228" cy="308" r="1.6" class="decor"/>
+<circle cx="1252" cy="20" r="1.6" class="decor"/>
+<circle cx="1252" cy="44" r="1.6" class="decor"/>
+<circle cx="1252" cy="68" r="1.6" class="decor"/>
+<circle cx="1252" cy="92" r="1.6" class="decor"/>
+<circle cx="1252" cy="116" r="1.6" class="decor"/>
+<circle cx="1252" cy="140" r="1.6" class="decor"/>
+<circle cx="1252" cy="164" r="1.6" class="decor"/>
+<circle cx="1252" cy="188" r="1.6" class="decor"/>
+<circle cx="1252" cy="212" r="1.6" class="decor"/>
+<circle cx="1252" cy="236" r="1.6" class="decor"/>
+<circle cx="1252" cy="260" r="1.6" class="decor"/>
+<circle cx="1252" cy="284" r="1.6" class="decor"/>
+<circle cx="1252" cy="308" r="1.6" class="decor"/>
+<text x="72.0" y="78.0" class="kicker" text-anchor="start">AUTONOMOUS GITHUB ISSUE RESOLVER</text>
+<text x="72.0" y="134.0" class="headline" text-anchor="start">Self-Improving Coding Agent</text>
+<text x="72.0" y="174.0" class="body" text-anchor="start">Reproduce the bug, fix it in a Docker sandbox,</text>
+<text x="72.0" y="202.0" class="body" text-anchor="start">and prove it with tests before opening a PR.</text>
+<rect x="72" y="226" width="273" height="46" rx="10" class="cta-box"/>
+<text x="90.0" y="255.0" class="cta-prompt" text-anchor="start">$</text>
+<text x="110.0" y="255.0" class="cta" text-anchor="start">agent solve &lt;issue-url&gt;</text>
+<path d="M1013.4,64.9 A96,96 0 0 1 1095.1,146.6" class="llm-stroke"/>
+<text x="1089.1" y="75.9" class="loop-label llm-text" text-anchor="start">plan</text>
+<path d="M1095.1,173.4 A96,96 0 0 1 1013.4,255.1" class="host-stroke"/>
+<text x="1089.1" y="254.1" class="loop-label host-text" text-anchor="start">edit</text>
+<path d="M986.6,255.1 A96,96 0 0 1 904.9,173.4" class="sandbox-stroke"/>
+<text x="910.9" y="254.1" class="loop-label sandbox-text" text-anchor="end">test</text>
+<path d="M904.9,146.6 A96,96 0 0 1 986.6,64.9" class="output-stroke"/>
+<text x="910.9" y="75.9" class="loop-label output-text" text-anchor="end">verify</text>
+<text x="1000.0" y="158.0" class="loop-center" text-anchor="middle">until verified</text>
+<text x="1000.0" y="180.0" class="loop-center-sub" text-anchor="middle">reproduce → fix → test</text>
+<line x1="1104" y1="160" x2="1112" y2="160" class="rule"/>
+<rect x="1112" y="141" width="104" height="38" rx="19" class="output-fill"/>
+<text x="1164.0" y="166.0" class="loop-label output-text" text-anchor="middle">patch ✓</text>
+</svg>

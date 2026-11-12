@@ -1,3 +1,5 @@
+<img alt="Self-Improving Coding Agent: an autonomous GitHub issue resolver that reproduces the bug, fixes it in a Docker sandbox, and proves it with tests before opening a PR. Install with pip install -e . and run agent solve on an issue URL; an example run plans, reproduces the failure, edits the code, tests with no new failures, and ends resolved with a PR opened." src="assets/banners/readme/terminal-1280x320-light.svg" width="100%">
+
 # Coding Agent: Autonomous GitHub Issue Resolver
 
 An agent that takes a GitHub issue, writes a fix, runs the tests in a sandbox, and iterates until they pass. It is a miniature version of what SWE-bench measures and what tools like Claude Code and SWE-agent do.
@@ -139,6 +141,10 @@ Self-Improving-Coding-Agent/
 │   ├── swebench_adapter.py        # Load SWE-bench Lite/Verified instances
 │   ├── metrics.py                 # Self-verified rate, cost, steps, stop reasons, resolve rate
 │   └── trajectory_analyzer.py     # Categorize failure modes across runs
+│
+├── assets/banners/readme/
+│   ├── build_banners.py           # README banners (3 styles × light/dark) from the same tokens
+│   └── {minimalist,geometric,terminal}-1280x320-{light,dark}.svg
 │
 ├── docs/architecture/
 │   ├── tokens.json                # Design tokens: primitive → semantic (light/dark) → component
