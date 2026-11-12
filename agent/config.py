@@ -26,9 +26,13 @@ class Config:
     tool_output_limit: int = 8000     # max chars returned from any tool call
     keep_recent_turns: int = 6        # older tool outputs get compacted
 
-    # pricing, USD per million tokens (UPDATE to match your model's pricing)
-    price_input_per_mtok: float = 3.0
-    price_output_per_mtok: float = 15.0
+    # Pricing, USD per million tokens. These are Anthropic first-party API rates for the default
+    # model (claude-sonnet-5-5, checked 2026-11). Update all four if you change `model`; Bedrock and
+    # Vertex AI have their own pricing. Cache writes are for the default 5-minute cache TTL.
+    price_input_per_mtok: float = 2.00
+    price_output_per_mtok: float = 10.00
+    price_cache_write_per_mtok: float = 2.50   # 1.25x input
+    price_cache_read_per_mtok: float = 0.10    # 0.05x input on this model (0.1x on many others)
 
     # sandbox
     base_image: str = "coding-agent-base"

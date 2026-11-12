@@ -299,3 +299,59 @@ def test_validator_allows_non_pytest_config_change(tmp_path):
     repo = make_repo(tmp_path / "r", {"setup.cfg": SETUP_CFG})
     (repo / "setup.cfg").write_text(SETUP_CFG.replace("name = pkg", "name = other"))
     assert validate_patch(repo).ok
+
+
+# --- minor: base image auto-build, packaging --------------------------------------------------
+
+class FakeDocker:
+    """Records docker CLI calls made through subprocess.run; `present` lists existing images."""
+
+    def __init__(self, present):
+        self.present, self.calls = set(present), []
+        self._real_run = subprocess.run   # patching is module-wide, so git calls pass through
+
+    def __call__(self, argv, **kwargs):
+        if argv[0] != "docker":
+            return self._real_run(argv, **kwargs)
+        self.calls.append(argv)
+        if argv[:3] == ["docker", "image", "inspect"]:
+            return NS(returncode=0 if argv[3] in self.present else 1, stdout="", stderr="")
+        if argv[:2] == ["docker", "build"]:
+            self.present.add(argv[argv.index("-t") + 1])
+            return NS(returncode=0, stdout="", stderr="")
+        raise AssertionError(f"unexpected command {argv}")
+
+
+def builds(fake):
+    return [c for c in fake.calls if c[:2] == ["docker", "build"]]
+
+
+def test_base_image_is_built_when_missing(monkeypatch):
+    from agent.sandbox import env_builder
+    fake = FakeDocker(present=[])
+    monkeypatch.setattr(env_builder.subprocess, "run", fake)
+    env_builder.ensure_base_image(Config())
+    (build,) = builds(fake)
+    assert build[build.index("-t") + 1] == "coding-agent-base"
+    assert build[build.index("-f") + 1].endswith("docker/Dockerfile.base")
+    env_builder.ensure_base_image(Config())          # second call: already present, no rebuild
+    assert len(builds(fake)) == 1
+
+
+def test_build_image_ensures_base_first(monkeypatch, tmp_path):
+    """The benchmark runner goes through build_image, so it gets the base image too."""
+    from agent.sandbox import env_builder
+    repo = make_repo(tmp_path / "r", {"setup.py": "from setuptools import setup\nsetup()\n"})
+    fake = FakeDocker(present=[])
+    monkeypatch.setattr(env_builder.subprocess, "run", fake)
+    spec = env_builder.build_image(repo, Config())
+    tags = [c[c.index("-t") + 1] for c in builds(fake)]
+    assert tags == ["coding-agent-base", spec.image_tag]
+
+
+def test_console_script_points_at_cli():
+    import importlib
+    import tomllib
+    meta = tomllib.loads((Path(__file__).resolve().parent.parent / "pyproject.toml").read_text())
+    module, func = meta["project"]["scripts"]["agent"].split(":")
+    assert callable(getattr(importlib.import_module(module), func))

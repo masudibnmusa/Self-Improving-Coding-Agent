@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "coding-agent"
+version = "0.1.0"
+description = "Autonomous GitHub issue resolver: reproduces a bug, fixes it in a Docker sandbox, and verifies the fix with tests."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.11"   # the patch validator uses tomllib
+dependencies = [
+    "anthropic>=0.40.0",
+    "docker>=7.0.0",
+    "requests>=2.31.0",
+    "python-dotenv>=1.0.0",
+]
+
+[project.optional-dependencies]
+bench = ["datasets>=2.19.0"]   # SWE-bench evaluation
+dev = ["pytest>=8.0.0"]
+
+[project.scripts]
+agent = "agent.main:cli"
+
+[tool.setuptools.packages.find]
+include = ["agent*", "evaluation*"]

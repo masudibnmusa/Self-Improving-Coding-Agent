@@ -1,8 +1,6 @@
 """Accumulates token usage across LLM calls and converts it to USD using the prices in Config."""
 
-# Prompt-cache multipliers relative to the base input price.
-CACHE_WRITE_MULTIPLIER = 1.25
-CACHE_READ_MULTIPLIER = 0.10
+PER_MTOK = 1_000_000
 
 
 class CostTracker:
@@ -15,7 +13,8 @@ class CostTracker:
         self.cache_read_tokens = 0
 
     def add(self, usage) -> None:
-        """Record one response's `usage` (anthropic Usage object or anything with the same attributes)."""
+        """Record one response's `usage` (anthropic Usage object or anything with the same attributes).
+        `input_tokens` excludes cached tokens, so the four counts are billed separately."""
         self.calls += 1
         self.input_tokens += getattr(usage, "input_tokens", 0) or 0
         self.output_tokens += getattr(usage, "output_tokens", 0) or 0
@@ -24,14 +23,13 @@ class CostTracker:
 
     @property
     def total_cost(self) -> float:
-        p_in = self.cfg.price_input_per_mtok / 1_000_000
-        p_out = self.cfg.price_output_per_mtok / 1_000_000
+        c = self.cfg
         return (
-            self.input_tokens * p_in
-            + self.cache_write_tokens * p_in * CACHE_WRITE_MULTIPLIER
-            + self.cache_read_tokens * p_in * CACHE_READ_MULTIPLIER
-            + self.output_tokens * p_out
-        )
+            self.input_tokens * c.price_input_per_mtok
+            + self.output_tokens * c.price_output_per_mtok
+            + self.cache_write_tokens * c.price_cache_write_per_mtok
+            + self.cache_read_tokens * c.price_cache_read_per_mtok
+        ) / PER_MTOK
 
     def summary(self) -> dict:
         return {
