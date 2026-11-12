@@ -104,13 +104,22 @@ def test_clone_error_does_not_leak_token(monkeypatch):
 
 def test_cost_tracker_prices_all_token_kinds():
     cfg = Config()
-    cfg.price_input_per_mtok, cfg.price_output_per_mtok = 3.0, 15.0
     c = CostTracker(cfg)
     c.add(NS(input_tokens=1_000_000, output_tokens=100_000,
              cache_creation_input_tokens=None, cache_read_input_tokens=None))
     c.add(NS(input_tokens=0, output_tokens=0,
              cache_creation_input_tokens=1_000_000, cache_read_input_tokens=1_000_000))
-    # 3.00 input + 1.50 output + 3.75 cache write + 0.30 cache read
-    assert c.total_cost == pytest.approx(8.55)
+    # Default claude-sonnet-5-5 prices: 2.00 input + 1.00 output + 2.50 cache write + 0.10 cache read
+    assert c.total_cost == pytest.approx(5.60)
     s = c.summary()
-    assert s["calls"] == 2 and s["total_cost_usd"] == 8.55
+    assert s["calls"] == 2 and s["total_cost_usd"] == 5.6
+
+
+def test_cost_tracker_uses_configured_prices():
+    cfg = Config()
+    cfg.price_input_per_mtok, cfg.price_output_per_mtok = 4.0, 20.0
+    cfg.price_cache_write_per_mtok, cfg.price_cache_read_per_mtok = 5.0, 0.20
+    c = CostTracker(cfg)
+    c.add(NS(input_tokens=500_000, output_tokens=50_000,
+             cache_creation_input_tokens=200_000, cache_read_input_tokens=1_000_000))
+    assert c.total_cost == pytest.approx(2.0 + 1.0 + 1.0 + 0.2)

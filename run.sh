@@ -1,9 +1,5 @@
 #!/usr/bin/env bash
+# Convenience wrapper. The base sandbox image is built automatically on first use.
 set -euo pipefail
 cd "$(dirname "$0")"
-
-if ! docker image inspect coding-agent-base >/dev/null 2>&1; then
-  docker build -f docker/Dockerfile.base -t coding-agent-base .
-fi
-
-python -m agent.main "$@"
+exec python -m agent.main "$@"

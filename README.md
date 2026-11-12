@@ -91,7 +91,7 @@ The host repo is the single source of truth: the patch is always taken from it. 
 Self-Improving-Coding-Agent/
 │
 ├── agent/
-│   ├── main.py                    # CLI entry point (`python -m agent.main solve <issue-url>`) and run_task()
+│   ├── main.py                    # CLI entry point (`agent solve <issue-url>`) and run_task()
 │   ├── config.py                  # Model, budgets, pricing, sandbox settings, paths
 │   │
 │   ├── core/
@@ -158,9 +158,11 @@ Self-Improving-Coding-Agent/
 │
 ├── .env.example
 ├── .gitignore
-├── requirements.txt
+├── LICENSE                        # MIT
+├── pyproject.toml                 # Package metadata; installs the `agent` command
+├── requirements.txt               # Same dependencies, for `pip install -r`
 ├── README.md
-└── run.sh                         # Builds the base image if missing, then runs agent.main
+└── run.sh                         # Wrapper: runs agent.main from the project folder
 ```
 
 ---
@@ -183,11 +185,13 @@ cd Self-Improving-Coding-Agent
 
 python -m venv .venv
 source .venv/bin/activate        # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
+pip install -e ".[dev]"          # installs the `agent` command; add ",bench" for SWE-bench runs
 
 cp .env.example .env
 # then edit .env and add your keys
 ```
+
+Use an editable install (`-e`) from the checkout: the agent reads `docker/Dockerfile.base` and writes `data/` relative to the project folder. `pip install -r requirements.txt` still works if you prefer running through `python -m agent.main`.
 
 ### Environment variables
 
@@ -198,14 +202,14 @@ GITHUB_TOKEN=your-token-here
 
 > **Important:** these keys live on the host only. They are never passed into the sandbox container, and the token is removed from the cloned repo's `.git/config` and redacted from error messages.
 
-### Build the base sandbox image
+### Base sandbox image
+
+The base image (`coding-agent-base`, from `docker/Dockerfile.base`) is built automatically the first time any run needs it, whether that's `agent solve`, `run.sh`, or the benchmark runner. To build or rebuild it yourself:
 
 ```bash
-docker build -f docker/Dockerfile.base -t coding-agent-base .
+docker build -f docker/Dockerfile.base -t coding-agent-base docker/
 # or: docker compose -f docker/docker-compose.yml build
 ```
-
-`run.sh` builds it automatically if it is missing. The benchmark runner does not, so build it once before running benchmarks.
 
 ---
 
@@ -214,15 +218,16 @@ docker build -f docker/Dockerfile.base -t coding-agent-base .
 ### Solve a single issue
 
 ```bash
-./run.sh solve https://github.com/<owner>/<repo>/issues/<number>
-# or
+agent solve https://github.com/<owner>/<repo>/issues/<number>
+# equivalent, without installing the package:
 python -m agent.main solve https://github.com/<owner>/<repo>/issues/<number>
+./run.sh solve https://github.com/<owner>/<repo>/issues/<number>
 ```
 
 ### Options
 
 ```bash
-python -m agent.main solve <issue-url> \
+agent solve <issue-url> \
   --commit <sha> \
   --max-steps 40 \
   --max-cost 2.00 \
@@ -265,7 +270,8 @@ Defaults live in the `Config` dataclass in `agent/config.py`. The CLI flags abov
 | `stuck_threshold` | 3 | Nudge after N identical consecutive test failures; stop after 2N |
 | `tool_output_limit` | 8000 | Max characters returned from any single tool call |
 | `keep_recent_turns` | 6 | Older tool outputs beyond this are compacted to a placeholder |
-| `price_input_per_mtok` / `price_output_per_mtok` | 3.0 / 15.0 | USD per million tokens. **Update these to your model's pricing.** Cache writes are billed at 1.25× input, cache reads at 0.1× |
+| `price_input_per_mtok` / `price_output_per_mtok` | 2.00 / 10.00 | USD per million tokens, Anthropic API rates for `claude-sonnet-5-5` |
+| `price_cache_write_per_mtok` / `price_cache_read_per_mtok` | 2.50 / 0.10 | Prompt-cache writes (5-minute TTL) and reads for the same model. **Update all four prices if you change `model`**; Bedrock and Vertex AI price differently |
 | `base_image` | `coding-agent-base` | Base image for per-repo images |
 | `sandbox_cpus` / `sandbox_memory` / `sandbox_pids` | 2.0 / `4g` / 512 | Container resource caps |
 | `sandbox_network` | `none` | Docker network mode for the container (network is only available at image build time) |
@@ -369,7 +375,7 @@ pytest tests/
 
 The unit tests need no Docker daemon, network, or API key: the LLM is faked, and sandbox behaviour is tested against a stand-in container that runs the same commands in a local directory.
 
-Current status: **54 passed in ~0.9 s** (Python 3.12, git 2.56, Linux).
+Current status: **58 passed in ~1.0 s** (Python 3.12, git 2.56, Linux).
 
 | File | Tests | Covers |
 |------|------:|--------|
@@ -377,8 +383,8 @@ Current status: **54 passed in ~0.9 s** (Python 3.12, git 2.56, Linux).
 | `test_file_editor.py` | 7 | Unique replace, not-found and ambiguous matches, syntax-error rejection, test-file protection, repro files, path escapes |
 | `test_stopping_criteria.py` | 7 | Finish, max steps, max cost, stuck detection, verification ordering |
 | `test_test_output_parser.py` | 3 | Failure parsing, passing runs, stable failure signatures |
-| `test_security.py` | 8 | `.git` edits and symlinks blocked; host git ignores tampered fsmonitor and hooks; nothing mounted into the container; token redaction; cost tracking incl. cache tokens |
-| `test_fixes.py` | 26 | Status and PR gating; CRLF preservation; what counts as a reproduction (exit codes 1/2/4/5/124, fixture errors); repro re-check after the last edit; pre-existing failure baseline; failing-id parsing; `/workspace` paths in `repo_map`; host↔sandbox sync (edits, deletions, reverts, discarding in-container changes, keeping build output); pytest-config protection in the edit tools and validator |
+| `test_security.py` | 9 | `.git` edits and symlinks blocked; host git ignores tampered fsmonitor and hooks; nothing mounted into the container; token redaction; cost tracking for all four token kinds with default and custom prices |
+| `test_fixes.py` | 29 | Status and PR gating; CRLF preservation; what counts as a reproduction (exit codes 1/2/4/5/124, fixture errors); repro re-check after the last edit; pre-existing failure baseline; failing-id parsing; `/workspace` paths in `repo_map`; host↔sandbox sync (edits, deletions, reverts, discarding in-container changes, keeping build output); pytest-config protection in the edit tools and validator; base image built automatically (also via `build_image`, which the benchmark runner uses); `agent` console script target |
 
 The security and correctness tests were mutation-checked: disabling each fix (e.g. the git hardening, the fresh reset before test runs, CRLF handling, the repro re-check, the PR gate) makes the corresponding test fail.
 
@@ -406,4 +412,4 @@ Inspired by [SWE-bench](https://www.swebench.com/), [SWE-agent](https://github.c
 
 ## License
 
-MIT
+Released under the [MIT License](LICENSE).
